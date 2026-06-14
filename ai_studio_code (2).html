@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIMOS-B Dashboard Pro - Mécheria One Health</title>
+    
+    <!-- CSS & Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --primary: #1a5276; --secondary: #27ae60; --danger: #e74c3c;
+            --warning: #f39c12; --bg: #f4f7f9; --sidebar: #2c3e50; --text: #333;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg); display: flex; height: 100vh; overflow: hidden; }
+
+        /* SIDEBAR */
+        .sidebar { width: 280px; background: var(--sidebar); color: white; display: flex; flex-direction: column; }
+        .logo-area { padding: 30px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .logo-area h2 { font-weight: 700; letter-spacing: 2px; color: var(--secondary); }
+        
+        .nav-menu { flex: 1; padding: 20px 0; }
+        .nav-item { 
+            padding: 15px 30px; display: flex; align-items: center; 
+            color: #bdc3c7; text-decoration: none; cursor: pointer; transition: 0.3s;
+        }
+        .nav-item:hover, .nav-item.active { background: #34495e; color: white; border-left: 5px solid var(--secondary); }
+        .nav-item i { margin-right: 15px; font-size: 18px; width: 25px; }
+
+        /* MAIN CONTENT */
+        .main-content { flex: 1; overflow-y: auto; padding: 30px; display: flex; flex-direction: column; }
+        
+        .header-top { 
+            display: flex; justify-content: space-between; align-items: center; 
+            margin-bottom: 30px; background: white; padding: 20px; border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }
+        .header-top h1 { color: #000; font-weight: bold; font-size: 24px; } /* Noir Gras كما طلبت الأستاذة */
+
+        /* STAT CARDS */
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
+        .stat-card { 
+            background: white; padding: 25px; border-radius: 15px; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05); border-bottom: 5px solid var(--primary);
+            transition: transform 0.3s;
+        }
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-card h3 { font-size: 32px; color: var(--primary); margin-bottom: 5px; }
+        .stat-card p { font-size: 12px; color: #7f8c8d; font-weight: bold; text-transform: uppercase; }
+
+        /* DATA VISUALIZATION SECTION */
+        .data-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-bottom: 30px; }
+        .panel { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .panel h2 { color: #000; font-weight: bold; margin-bottom: 20px; font-size: 18px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        #map { height: 350px; border-radius: 15px; z-index: 1; }
+
+        /* ALERTE FORM */
+        .form-container { max-width: 900px; margin: 0 auto; background: white; padding: 40px; border-radius: 20px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 700; color: #2c3e50; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 15px; }
+        .btn-send { 
+            background: var(--secondary); color: white; border: none; padding: 18px; 
+            width: 100%; border-radius: 12px; font-weight: bold; font-size: 18px; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+
+        /* TAB MANAGEMENT */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* GUIDES TABLE */
+        .guide-table { width: 100%; border-collapse: collapse; }
+        .guide-table th { text-align: left; padding: 15px; background: #f8f9fa; color: #000; }
+        .guide-table td { padding: 15px; border-bottom: 1px solid #eee; }
+        .btn-download { color: var(--primary); font-weight: bold; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="logo-area">
+            <i class="fa-solid fa-laptop-medical fa-3x"></i>
+            <h2>SIMOS-B</h2>
+            <p><small>Plateforme Intégrée One Health</small></p>
+        </div>
+        <nav class="nav-menu">
+            <div class="nav-item active" onclick="switchTab('dashboard', this)"><i class="fa-solid fa-gauge-high"></i> Tableau de Bord</div>
+            <div class="nav-item" onclick="switchTab('alerte', this)"><i class="fa-solid fa-bell-exclamation"></i> Nouveau Signalement</div>
+            <div class="nav-item" onclick="switchTab('guides', this)"><i class="fa-solid fa-file-shield"></i> Protocoles و Guides</div>
+            <div class="nav-item" onclick="switchTab('stats', this)"><i class="fa-solid fa-chart-pie"></i> Statistiques Avancées</div>
+        </nav>
+        <div style="padding: 20px; font-size: 10px; color: #7f8c8d; text-align: center;">© 2026 Mécheria Health Dev</div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main-content">
+        
+        <!-- HEADER -->
+        <div class="header-top">
+            <div>
+                <h1 id="tab-title">Tableau de Bord Épidémiologique</h1>
+                <p style="color:#7f8c8d">Suivi de la Brucellose à Mécheria (Wilaya de Naâma)</p>
+            </div>
+            <div style="background: #e8f4fd; padding: 10px 20px; border-radius: 10px;">
+                <i class="fa-solid fa-calendar-day"></i> <span id="current-date"></span>
+            </div>
+        </div>
+
+        <!-- TAB: DASHBOARD -->
+        <div id="dashboard" class="tab-content active">
+            <!-- STATS CARDS -->
+            <div class="stats-row">
+                <div class="stat-card"><h3>35</h3><p>Cas Humains Notifiés</p></div>
+                <div class="stat-card" style="border-bottom-color: var(--warning);"><h3>12</h3><p>Foyers Animaux Actifs</p></div>
+                <div class="stat-card"><h3>20</h3><p>Dépistages Réalisés</p></div>
+                <div class="stat-card" style="border-bottom-color: var(--danger);"><h3>05</h3><p>Alertes Lait Cru</p></div>
+            </div>
+
+            <!-- GRAPHS AND MAP -->
+            <div class="data-grid">
+                <div class="panel">
+                    <h2><i class="fa-solid fa-chart-line"></i> Évolution mensuelle des cas (2026)</h2>
+                    <canvas id="mainChart" height="120"></canvas>
+                </div>
+                <div class="panel">
+                    <h2><i class="fa-solid fa-virus"></i> Sources de Contamination</h2>
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2><i class="fa-solid fa-map-location-dot"></i> Cartographie Spatio-temporelle des Foyers</h2>
+                <div id="map"></div>
+            </div>
+        </div>
+
+        <!-- TAB: ALERTE FORM -->
+        <div id="alerte" class="tab-content">
+            <div class="form-container">
+                <h1 style="margin-bottom:30px; text-align:center">Déclaration de Nouveau Foyer</h1>
+                <form id="brucellaForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Catégorie de cas</label>
+                            <select class="form-control">
+                                <option>Patient (Santé Humaine)</option>
+                                <option>Cheptel (Santé Animale)</option>
+                                <option>Échantillon Environnemental</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Type de Contamination Suspectée</label>
+                            <select class="form-control">
+                                <option>Consommation de lait cru (Lben/Jben)</option>
+                                <option>Contact direct avec le bétail</option>
+                                <option>Manipulation du placenta (S'la)</option>
+                                <option>Points d'eau contaminés (Dhayas)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Localisation (Quartier/Zone)</label>
+                            <input type="text" class="form-control" placeholder="Ex: El-Badr, Mécheria Centre...">
+                        </div>
+                        <div class="form-group">
+                            <label>Date d'apparition</label>
+                            <input type="date" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Observations cliniques ou environnementales</label>
+                        <textarea class="form-control" rows="5" placeholder="Détails sur les symptômes, l'origine du lait, etc."></textarea>
+                    </div>
+                    <button type="button" class="btn-send" onclick="sendData()">DIFFUSER L'ALERTE AUX SECTEURS CONCERNÉS</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- TAB: GUIDES -->
+        <div id="guides" class="tab-content">
+            <div class="panel">
+                <h1>Bibliothèque Numérique de Prévention</h1>
+                <table class="guide-table">
+                    <thead>
+                        <tr>
+                            <th>Document</th>
+                            <th>Auteur / Source</th>
+                            <th>Format</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Le Guide de Prévention (One Health)</strong></td>
+                            <td>Ministère de la Santé / Agriculture</td>
+                            <td><i class="fa-solid fa-file-pdf" style="color:var(--danger)"></i> PDF</td>
+                            <td><a href="https://www.who.int/docs/default-source/documents/publications/brucellosis-in-humans-and-animals.pdf" target="_blank" class="btn-download">Consulter</a></td>
+                        </tr>
+                        <tr>
+                            <td>Protocole National de Lutte contre la Brucellose</td>
+                            <td>Direction de la Prévention</td>
+                            <td><i class="fa-solid fa-file-pdf" style="color:var(--danger)"></i> PDF</td>
+                            <td><a href="#" class="btn-download">Consulter</a></td>
+                        </tr>
+                        <tr>
+                            <td>Manuel de Désinfection des Bergeries (El-Djir)</td>
+                            <td>Hygiéniste S.P</td>
+                            <td><i class="fa-solid fa-file-pdf" style="color:var(--danger)"></i> PDF</td>
+                            <td><a href="#" class="btn-download">Consulter</a></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- SCRIPTS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        document.getElementById('current-date').innerText = new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            el.classList.add('active');
+            document.getElementById('tab-title').innerText = el.innerText;
+            if(tabId === 'dashboard') { setTimeout(() => map.invalidateSize(), 200); }
+        }
+
+        // MAIN TREND CHART
+        const ctxMain = document.getElementById('mainChart').getContext('2d');
+        new Chart(ctxMain, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+                datasets: [{
+                    label: 'Cas Humains 2026',
+                    data: [10, 18, 25, 35, 32, 30],
+                    borderColor: '#1a5276',
+                    tension: 0.4,
+                    fill: true,
+                    backgroundColor: 'rgba(26, 82, 118, 0.05)'
+                }]
+            }
+        });
+
+        // PIE CHART
+        const ctxPie = document.getElementById('pieChart').getContext('2d');
+        new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: ['Lait Cru', 'Contact Direct', 'Déchets S\'la', 'Dhayas'],
+                datasets: [{
+                    data: [50, 30, 15, 5],
+                    backgroundColor: ['#e74c3c', '#27ae60', '#f39c12', '#3498db']
+                }]
+            }
+        });
+
+        // MAP SETUP
+        var map = L.map('map').setView([33.5503, -0.2833], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.circle([33.555, -0.285], {color: 'red', radius: 500}).addTo(map).bindPopup("Zone Critique: Quartier Touadjar");
+
+        function sendData() {
+            alert("✅ Alerte Transmise !\nLe signalement a été envoyé simultanément au SEMEP, à la DSV et au BHC.");
+            document.getElementById('brucellaForm').reset();
+            switchTab('dashboard', document.querySelector('.nav-item'));
+        }
+    </script>
+</body>
+</html>
